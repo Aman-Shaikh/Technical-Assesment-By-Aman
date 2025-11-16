@@ -1,0 +1,12 @@
+<resources>
+    <!-- Search Screen -->
+    <string name="product_search">Product Search</string>
+    <string name="search_products_hint">Search products…</string>
+    <string name="search_button_content_description">Search</string>
+    <string name="no_products_found">No products found</string>
+    <string name="enter_at_least_2_characters">Enter at least 2 characters and tap the search icon to find products</string>
+    
+    <!-- Error Messages -->
+    <string name="error_occurred">An error occurred</string>
+</resources>
+

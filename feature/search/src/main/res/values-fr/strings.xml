@@ -1,0 +1,12 @@
+<resources>
+    <!-- Search Screen -->
+    <string name="product_search">Recherche de produits</string>
+    <string name="search_products_hint">Rechercher des produits…</string>
+    <string name="search_button_content_description">Rechercher</string>
+    <string name="no_products_found">Aucun produit trouvé</string>
+    <string name="enter_at_least_2_characters">Entrez au moins 2 caractères et appuyez sur l\'icône de recherche pour trouver des produits</string>
+    
+    <!-- Error Messages -->
+    <string name="error_occurred">Une erreur s\'est produite</string>
+</resources>
+
