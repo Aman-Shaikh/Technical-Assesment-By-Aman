@@ -3,6 +3,7 @@ package com.company.productsearch.core.data.repository
 import com.company.productsearch.core.data.remote.ProductApi
 import com.company.productsearch.core.data.remote.toDomain
 import com.company.productsearch.core.domain.model.Product
+import com.company.productsearch.core.domain.model.ProductDetails
 import com.company.productsearch.core.domain.repository.ProductRepository
 
 class ProductRepositoryImpl(
@@ -30,6 +31,18 @@ class ProductRepositoryImpl(
             val product = response.products.firstOrNull()?.toDomain()
                 ?: return Result.failure(IllegalArgumentException("Product not found"))
             Result.success(product)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun getProductDetails(
+        productId: String,
+        lang: String
+    ): Result<ProductDetails> {
+        return try {
+            val response = productApi.getProductDetails(productId, lang)
+            Result.success(response.toDomain())
         } catch (e: Exception) {
             Result.failure(e)
         }

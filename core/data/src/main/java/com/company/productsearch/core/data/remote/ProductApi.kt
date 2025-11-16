@@ -12,6 +12,11 @@ interface ProductApi {
         page: Int = 1,
         pageSize: Int = 24
     ): SearchResponseDto
+    
+    suspend fun getProductDetails(
+        productId: String,
+        lang: String = "en"
+    ): ProductDetailsDto
 }
 
 class ProductApiImpl(
@@ -30,6 +35,15 @@ class ProductApiImpl(
             parameter("query", query)
             parameter("page", page)
             parameter("pageSize", pageSize)
+        }.body()
+    }
+    
+    override suspend fun getProductDetails(
+        productId: String,
+        lang: String
+    ): ProductDetailsDto {
+        return httpClient.get("$baseUrl/product/$productId") {
+            parameter("lang", lang)
         }.body()
     }
 }
