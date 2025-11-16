@@ -7,10 +7,6 @@ import com.company.productsearch.core.domain.usecase.SearchProductsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class SearchUiState(
@@ -30,24 +26,15 @@ class SearchViewModel(
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
     
-    private val _searchQuery = MutableStateFlow("")
-    
-    init {
-        // Debounce search queries
-        _searchQuery
-            .debounce(500) // 500ms debounce
-            .filter { it.length >= 2 } // Minimum 2 characters
-            .onEach { query ->
-                if (query.isNotBlank()) {
-                    searchProducts(query)
-                }
-            }
-            .launchIn(viewModelScope)
+    fun onSearchQueryChanged(query: String) {
+        _uiState.value = _uiState.value.copy(query = query)
     }
     
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
-        _uiState.value = _uiState.value.copy(query = query)
+    fun performSearch() {
+        val query = _uiState.value.query.trim()
+        if (query.length >= 2) {
+            searchProducts(query, page = 1)
+        }
     }
     
     fun searchProducts(query: String, page: Int = 1) {
