@@ -42,8 +42,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import org.koin.androidx.compose.koinViewModel
 import com.company.productsearch.feature.search.ui.components.ProductItem
+import com.company.productsearch.feature.search.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,11 +57,15 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val defaultErrorMessage = stringResource(R.string.error_occurred)
     
     // Show error snackbar
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(error)
+            val errorMessage = error.ifEmpty {
+                defaultErrorMessage
+            }
+            snackbarHostState.showSnackbar(errorMessage)
             viewModel.clearError()
         }
     }
@@ -76,7 +82,7 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Product Search") }
+                title = { Text(stringResource(R.string.product_search)) }
             )
         },
         snackbarHost = {
@@ -109,7 +115,7 @@ fun SearchScreen(
                         .height(56.dp),
                     placeholder = { 
                         Text(
-                            text = "Search products...",
+                            text = stringResource(R.string.search_products_hint),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         ) 
                     },
@@ -151,7 +157,7 @@ fun SearchScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = stringResource(R.string.search_button_content_description),
                         tint = if (uiState.query.trim().length >= 2) {
                             MaterialTheme.colorScheme.onPrimary
                         } else {
@@ -178,7 +184,7 @@ fun SearchScreen(
                     uiState.products.isEmpty() && uiState.query.length >= 2 -> {
                         // No results
                         Text(
-                            text = "No products found",
+                            text = stringResource(R.string.no_products_found),
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
@@ -190,7 +196,7 @@ fun SearchScreen(
                     uiState.query.length < 2 -> {
                         // Empty state
                         Text(
-                            text = "Enter at least 2 characters and tap the search icon to find products",
+                            text = stringResource(R.string.enter_at_least_2_characters),
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             modifier = Modifier

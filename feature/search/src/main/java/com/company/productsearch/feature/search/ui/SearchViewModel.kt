@@ -56,7 +56,7 @@ class SearchViewModel(
                 .onFailure { exception ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = exception.message ?: "An error occurred"
+                        error = exception.message
                     )
                 }
         }

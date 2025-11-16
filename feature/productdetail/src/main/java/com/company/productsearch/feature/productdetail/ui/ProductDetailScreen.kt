@@ -38,8 +38,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import org.koin.androidx.compose.koinViewModel
+import com.company.productsearch.feature.productdetail.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +52,7 @@ fun ProductDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val defaultErrorMessage = stringResource(R.string.error_occurred)
     
     LaunchedEffect(productId) {
         viewModel.loadProductDetails(productId)
@@ -57,7 +60,10 @@ fun ProductDetailScreen(
     
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(error)
+            val errorMessage = error.ifEmpty {
+                defaultErrorMessage
+            }
+            snackbarHostState.showSnackbar(errorMessage)
             viewModel.clearError()
         }
     }
@@ -65,12 +71,12 @@ fun ProductDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Product Details") },
+                title = { Text(stringResource(R.string.product_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back_button_content_description)
                         )
                     }
                 }
@@ -111,7 +117,7 @@ fun ProductDetailScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Product not found",
+                        text = stringResource(R.string.product_not_found),
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
@@ -165,7 +171,7 @@ fun ProductDetailContent(
             // Brand
             productDetails.brandName?.let { brand ->
                 Text(
-                    text = "Brand: $brand",
+                    text = stringResource(R.string.brand_label, brand),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -174,7 +180,7 @@ fun ProductDetailContent(
             // Category
             productDetails.categoryName?.let { category ->
                 Text(
-                    text = "Category: $category",
+                    text = stringResource(R.string.category_label, category),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -249,31 +255,31 @@ fun ProductDetailContent(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Availability",
+                            text = stringResource(R.string.availability),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         if (availability.isAvailableOnline) {
                             Text(
-                                text = "Available Online",
+                                text = stringResource(R.string.available_online),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             availability.onlineAvailabilityCount?.let { count ->
                                 Text(
-                                    text = "$count in stock",
+                                    text = stringResource(R.string.in_stock, count),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         } else {
                             Text(
-                                text = "Not Available Online",
+                                text = stringResource(R.string.not_available_online),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         availability.inStoreAvailabilityText?.let { inStore ->
                             Text(
-                                text = "In Store: $inStore",
+                                text = stringResource(R.string.in_store, inStore),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -303,7 +309,7 @@ fun ProductDetailContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Description",
+                            text = stringResource(R.string.description),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -329,7 +335,7 @@ fun ProductDetailContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Specifications",
+                            text = stringResource(R.string.specifications),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -367,7 +373,7 @@ fun ProductDetailContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "What's in the Box",
+                            text = stringResource(R.string.whats_in_the_box),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -387,21 +393,21 @@ fun ProductDetailContent(
             ) {
                 productDetails.modelNumber?.let { model ->
                     Text(
-                        text = "Model: $model",
+                        text = stringResource(R.string.model_label, model),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 productDetails.manufacturer?.let { manufacturer ->
                     Text(
-                        text = "Manufacturer: $manufacturer",
+                        text = stringResource(R.string.manufacturer_label, manufacturer),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 productDetails.upcNumber?.let { upc ->
                     Text(
-                        text = "UPC: $upc",
+                        text = stringResource(R.string.upc_label, upc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
