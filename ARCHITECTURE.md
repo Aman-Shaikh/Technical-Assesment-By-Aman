@@ -13,14 +13,12 @@ app/
 ├── build.gradle.kts
 └── src/main/java/com/company/productsearch/
     ├── ProductSearchApplication.kt
-    └── di/AppModule.kt
+    └── di/AppModule.kt // Koin module
 
 core/
 ├── common/
 │   └── src/main/java/com/company/productsearch/core/common/
-│       ├── di/CommonModule.kt
-│       ├── network/NetworkModule.kt
-│       ├── database/DatabaseModule.kt
+│       ├── di/CommonModule.kt // Koin module for network, db
 │       ├── ui/Theme.kt
 │       ├── ui/components/
 │       ├── utils/Result.kt
@@ -32,7 +30,7 @@ core/
 │       │   ├── SearchQueryDao.kt
 │       │   └── ProductDatabase.kt
 │       ├── remote/
-│       │   ├── ProductApi.kt
+│       │   ├── ProductApi.kt // Ktor API service
 │       │   ├── ProductDto.kt
 │       │   └── SearchResponseDto.kt
 │       └── repository/
@@ -48,13 +46,13 @@ core/
 feature/
 ├── search/
 │   └── src/main/java/com/company/productsearch/feature/search/
-│       ├── di/SearchModule.kt
+│       ├── di/SearchModule.kt // Koin module
 │       ├── ui/SearchScreen.kt
 │       ├── ui/SearchViewModel.kt
 │       └── ui/components/ProductItem.kt
 └── productdetail/
     └── src/main/java/com/company/productsearch/feature/productdetail/
-        ├── di/ProductDetailModule.kt
+        ├── di/ProductDetailModule.kt // Koin module
         ├── ui/ProductDetailScreen.kt
         └── ui/ProductDetailViewModel.kt
 ```
@@ -65,21 +63,21 @@ feature/
 
 ### app
 - Application entry point
-- Dependency injection root (Hilt Application class)
+- Dependency injection root (Koin initialization in Application class)
 - MainActivity with Navigation Compose setup
 - App-level theme and configuration
 
 ### core:common
 - Shared utilities and extensions
-- Network configuration (Retrofit, OkHttp, interceptors)
+- Network configuration (Ktor, CIO engine, plugins)
 - Database setup (Room)
 - Common UI components (loading states, error states, empty states)
 - Result wrapper for error handling
-- Dependency injection modules for shared dependencies
+- Koin modules for shared dependencies (network, database)
 
 ### core:data
 - Data layer implementation
-- Remote data sources (API interfaces, DTOs, mappers)
+- Remote data sources (Ktor API services, DTOs, mappers)
 - Local data sources (Room DAOs, entities)
 - Repository implementations
 - Data mapping (DTO → Domain model)
@@ -97,13 +95,13 @@ feature/
 - Search input handling
 - Product list display with pagination
 - Navigation to product detail
-- Feature-specific dependency injection
+- Feature-specific Koin modules
 
 ### feature:productdetail
 - Product detail UI and ViewModel
 - Product information display
 - Add to cart functionality
-- Feature-specific dependency injection
+- Feature-specific Koin modules
 
 ---
 
@@ -170,8 +168,8 @@ class GetProductDetailsUseCase(
 
 ```kotlin
 // feature/search/src/main/java/com/company/productsearch/feature/search/ui/SearchViewModel.kt
-@HiltViewModel
-class SearchViewModel @Inject constructor(
+// Injected via Koin
+class SearchViewModel(
     private val searchProductsUseCase: SearchProductsUseCase
 ) : ViewModel() {
     
@@ -208,8 +206,7 @@ data class SearchUiState(
 
 ```kotlin
 // core/data/src/main/java/com/company/productsearch/core/data/repository/ProductRepositoryImpl.kt
-@Singleton
-class ProductRepositoryImpl @Inject constructor(
+class ProductRepositoryImpl(
     private val remoteDataSource: ProductRemoteDataSource,
     private val localDataSource: ProductLocalDataSource,
     private val mapper: ProductMapper
@@ -251,27 +248,79 @@ class ProductRepositoryImpl @Inject constructor(
 }
 ```
 
-### DTOs
+### DTOs (with Kotlinx.Serialization)
 
 ```kotlin
 // core/data/src/main/java/com/company/productsearch/core/data/remote/ProductDto.kt
-@JsonClass(generateAdapter = true)
+@Serializable
 data class ProductDto(
-    @Json(name = "id") val id: String,
-    @Json(name = "title") val title: String,
-    @Json(name = "price") val price: Double,
-    @Json(name = "currency") val currency: String,
-    @Json(name = "image_url") val imageUrl: String,
-    @Json(name = "description") val description: String
+    @SerialName("id") val id: String,
+    @SerialName("title") val title: String,
+    @SerialName("price") val price: Double,
+    @SerialName("currency") val currency: String,
+    @SerialName("image_url") val imageUrl: String,
+    @SerialName("description") val description: String
 )
 
-@JsonClass(generateAdapter = true)
+@Serializable
 data class SearchResponseDto(
-    @Json(name = "products") val products: List<ProductDto>,
-    @Json(name = "total") val total: Int,
-    @Json(name = "page") val page: Int,
-    @Json(name = "page_size") val pageSize: Int
+    @SerialName("products") val products: List<ProductDto>,
+    @SerialName("total") val total: Int,
+    @SerialName("page") val page: Int,
+    @SerialName("page_size") val pageSize: Int
 )
+```
+
+### Dependency Injection (Koin)
+
+```kotlin
+// app/src/main/java/com/company/productsearch/di/AppModule.kt
+val appModule = module {
+    // ViewModel for Search feature
+    viewModel { SearchViewModel(get()) }
+    
+    // ViewModel for Product Detail feature
+    viewModel { ProductDetailViewModel(get()) }
+}
+
+// core/common/src/main/java/com/company/productsearch/di/CommonModule.kt
+val networkModule = module {
+    single {
+        HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    prettyPrint = true
+                })
+            }
+            install(HttpRequestRetry) {
+                // ... retry config
+            }
+        }
+    }
+}
+
+val dataModule = module {
+    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get()) }
+    single<ProductRemoteDataSource> { ProductRemoteDataSourceImpl(get()) }
+    // ... other data sources, DAOs, mappers
+}
+
+val domainModule = module {
+    factory { SearchProductsUseCase(get()) }
+    factory { GetProductDetailsUseCase(get()) }
+}
+
+// In Application class
+class ProductSearchApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        startKoin {
+            androidContext(this@ProductSearchApplication)
+            modules(appModule, networkModule, dataModule, domainModule)
+        }
+    }
+}
 ```
 
 ---
@@ -412,33 +461,17 @@ sealed class AppError : Exception() {
 }
 ```
 
-### Retry Policy
+### Retry Policy (Ktor)
 
 ```kotlin
-// Network interceptor with exponential backoff
-class RetryInterceptor : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response {
-        var request = chain.request()
-        var response: Response? = null
-        var exception: IOException? = null
-        
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                response = chain.proceed(request)
-                if (response.isSuccessful) return response
-            } catch (e: IOException) {
-                exception = e
-                if (attempt < MAX_RETRIES - 1) {
-                    delay(calculateBackoff(attempt))
-                }
-            }
+// Ktor HttpClient plugin for retry with exponential backoff
+val httpClient = HttpClient(CIO) {
+    install(HttpRequestRetry) {
+        retryOnServerErrors(maxRetries = 3)
+        exponentialDelay()
+        modifyRequest { request ->
+            request.headers.append("X-RETRY-COUNT", retryCount.toString())
         }
-        
-        throw exception ?: IOException("Request failed")
-    }
-    
-    private fun calculateBackoff(attempt: Int): Long {
-        return minOf(1000L * (1 shl attempt), 10000L)
     }
 }
 ```
@@ -495,8 +528,8 @@ LaunchedEffect(Unit) {
 | Component | Test Type | Framework | Coverage Target |
 |-----------|-----------|-----------|-----------------|
 | Use Cases | Unit | JUnit 5, MockK | 90%+ |
-| ViewModels | Unit | JUnit 5, MockK, Turbine | 85%+ |
-| Repositories | Integration | JUnit 5, Room in-memory DB | 80%+ |
+| ViewModels | Unit | JUnit 5, MockK, Turbine, Koin Test | 85%+ |
+| Repositories | Integration | JUnit 5, Room in-memory DB, Koin Test | 80%+ |
 | Mappers | Unit | JUnit 5 | 95%+ |
 | UI Components | UI | Compose Test, Espresso | 70%+ |
 | Navigation | Integration | Navigation Testing | 80%+ |
@@ -507,18 +540,18 @@ LaunchedEffect(Unit) {
 // core/domain/src/test/java/com/company/productsearch/core/domain/usecase/SearchProductsUseCaseTest.kt
 @ExtendWith(MockKExtension::class)
 class SearchProductsUseCaseTest {
-    
+
     @MockK
     private lateinit var repository: ProductRepository
-    
+
     private lateinit var useCase: SearchProductsUseCase
-    
+
     @Before
     fun setup() {
         MockKAnnotations.init(this)
         useCase = SearchProductsUseCase(repository)
     }
-    
+
     @Test
     fun `invoke should return flow of paging data from repository`() = runTest {
         // Given
@@ -527,346 +560,11 @@ class SearchProductsUseCaseTest {
             Product("1", "Laptop", 999.99, "USD", "url", "desc")
         )
         val pagingData = PagingData.from(expectedProducts)
-        
+
         every { repository.searchProducts(query, pageSize = 20) } returns flowOf(pagingData)
-        
+
         // When
-        val result = useCase(query).first()
-        
-        // Then
-        val items = result.collectDataForTest()
-        assertEquals(1, items.size)
-        assertEquals("Laptop", items[0].title)
+        val result = use
     }
 }
 ```
-
-### Sample ViewModel Test
-
-```kotlin
-// feature/search/src/test/java/com/company/productsearch/feature/search/ui/SearchViewModelTest.kt
-@ExtendWith(MockKExtension::class)
-class SearchViewModelTest {
-    
-    @MockK
-    private lateinit var searchProductsUseCase: SearchProductsUseCase
-    
-    private lateinit var viewModel: SearchViewModel
-    
-    @Before
-    fun setup() {
-        MockKAnnotations.init(this)
-        viewModel = SearchViewModel(searchProductsUseCase)
-    }
-    
-    @Test
-    fun `onSearchQueryChanged should update search query`() = runTest {
-        // Given
-        val query = "phone"
-        
-        // When
-        viewModel.onSearchQueryChanged(query)
-        
-        // Then
-        assertEquals(query, viewModel.searchQuery.value)
-    }
-    
-    @Test
-    fun `search should debounce rapid input changes`() = runTest {
-        // Given
-        every { searchProductsUseCase(any()) } returns flowOf(PagingData.empty())
-        
-        // When
-        viewModel.onSearchQueryChanged("p")
-        viewModel.onSearchQueryChanged("ph")
-        viewModel.onSearchQueryChanged("pho")
-        viewModel.onSearchQueryChanged("phon")
-        viewModel.onSearchQueryChanged("phone")
-        
-        // Then
-        delay(400) // Wait for debounce
-        verify(exactly = 1) { searchProductsUseCase("phone") }
-    }
-}
-```
-
-### Sample UI Test
-
-```kotlin
-// feature/search/src/androidTest/java/com/company/productsearch/feature/search/ui/SearchScreenTest.kt
-@RunWith(AndroidJUnit4::class)
-class SearchScreenTest {
-    
-    @get:Rule
-    val composeTestRule = createComposeRule()
-    
-    @Test
-    fun searchScreen_displaysEmptyState_whenNoQuery() {
-        composeTestRule.setContent {
-            SearchScreen(
-                uiState = SearchUiState(),
-                searchQuery = "",
-                products = flowOf(PagingData.empty()),
-                onSearchQueryChanged = {},
-                onProductClicked = {}
-            )
-        }
-        
-        composeTestRule.onNodeWithText("Search for products").assertIsDisplayed()
-    }
-    
-    @Test
-    fun searchScreen_displaysProducts_whenResultsAvailable() {
-        val products = listOf(
-            Product("1", "Laptop", 999.99, "USD", "url", "desc")
-        )
-        
-        composeTestRule.setContent {
-            SearchScreen(
-                uiState = SearchUiState(),
-                searchQuery = "laptop",
-                products = flowOf(PagingData.from(products)),
-                onSearchQueryChanged = {},
-                onProductClicked = {}
-            )
-        }
-        
-        composeTestRule.onNodeWithText("Laptop").assertIsDisplayed()
-        composeTestRule.onNodeWithText("$999.99").assertIsDisplayed()
-    }
-}
-```
-
----
-
-## 9. CI Checklist & GitHub Actions
-
-### CI Checklist
-
-- [ ] **Linting**: ktlint/Detekt on all modules
-- [ ] **Unit Tests**: Run all unit tests (use cases, ViewModels, mappers)
-- [ ] **Integration Tests**: Run repository integration tests
-- [ ] **UI Tests**: Run Compose UI tests on emulator
-- [ ] **Build Matrix**: Test on API 24, 28, 33, 34
-- [ ] **Code Coverage**: Enforce minimum 80% coverage
-- [ ] **Dependency Check**: Check for vulnerable dependencies
-- [ ] **APK Generation**: Build release APK/AAB
-- [ ] **Publishing**: Upload to internal testing track (optional)
-
-### GitHub Actions Workflow
-
-```yaml
-name: Android CI
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Run ktlint
-        run: ./gradlew ktlintCheck
-      - name: Run Detekt
-        run: ./gradlew detekt
-
-  unit-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Run unit tests
-        run: ./gradlew test
-      - name: Generate coverage report
-        run: ./gradlew jacocoTestReport
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-
-  instrumented-tests:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        api-level: [24, 28, 33, 34]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-      - name: Run instrumented tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          script: ./gradlew connectedAndroidTest
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [lint, unit-tests]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Build release
-        run: ./gradlew assembleRelease bundleRelease
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: app-release
-          path: app/build/outputs/
-```
-
----
-
-## 10. Non-Functional Requirements & Performance/Security
-
-### Performance Checklist
-
-- [ ] **Image Loading**: Coil with memory/disk caching, placeholder/error handling
-- [ ] **List Performance**: LazyColumn with proper key() and remember optimizations
-- [ ] **Pagination**: Efficient loading with Paging 3, no memory leaks
-- [ ] **Database**: Indexed queries, batch operations, background threading
-- [ ] **Network**: Request/response caching, connection pooling, compression
-- [ ] **Memory**: Leak detection, proper lifecycle management, image size optimization
-- [ ] **Startup**: Lazy initialization, background work deferral, app startup metrics
-
-### Security Checklist
-
-- [ ] **Network Security**: HTTPS only, certificate pinning (optional for production)
-- [ ] **API Keys**: Stored in local.properties (dev) or secure storage (prod)
-- [ ] **Data Storage**: Encrypted SharedPreferences for sensitive data
-- [ ] **ProGuard/R8**: Obfuscation enabled, keep rules for reflection
-- [ ] **Input Validation**: Sanitize search queries, prevent injection attacks
-- [ ] **Deep Links**: Validate and sanitize deep link parameters
-- [ ] **Logging**: No sensitive data in logs, use ProGuard to strip logs in release
-
-### Observability
-
-```kotlin
-// Logging interceptor for network debugging
-class LoggingInterceptor : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request()
-        val startTime = System.currentTimeMillis()
-        
-        logger.d("Request: ${request.method} ${request.url}")
-        
-        val response = chain.proceed(request)
-        val duration = System.currentTimeMillis() - startTime
-        
-        logger.d("Response: ${response.code} in ${duration}ms")
-        
-        return response
-    }
-}
-
-// Analytics events
-interface Analytics {
-    fun logSearchEvent(query: String, resultCount: Int)
-    fun logProductView(productId: String)
-    fun logError(error: Throwable, context: String)
-}
-
-// Performance monitoring
-class PerformanceMonitor {
-    fun trackScreenLoad(screenName: String, duration: Long)
-    fun trackApiCall(endpoint: String, duration: Long, success: Boolean)
-}
-```
-
-### Accessibility
-
-- [ ] **Content Descriptions**: All images have meaningful contentDescription
-- [ ] **Touch Targets**: Minimum 48dp touch targets
-- [ ] **Text Scaling**: Support for large text sizes
-- [ ] **Color Contrast**: WCAG AA compliance
-- [ ] **Screen Readers**: Test with TalkBack
-
-### Localization
-
-- [ ] **String Resources**: All strings externalized
-- [ ] **Number Formatting**: Use Locale-aware formatting
-- [ ] **Date/Time**: Use system locale for formatting
-- [ ] **RTL Support**: Layout direction support for RTL languages
-
----
-
-## Implementation Notes
-
-### Dependency Injection (Hilt)
-
-```kotlin
-// Application class
-@HiltAndroidApp
-class ProductSearchApplication : Application()
-
-// Module example
-@Module
-@InstallIn(SingletonComponent::class)
-object NetworkModule {
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
-            .addInterceptor(LoggingInterceptor())
-            .addInterceptor(RetryInterceptor())
-            .cache(Cache(cacheDir, 10 * 1024 * 1024))
-            .build()
-    }
-    
-    @Provides
-    @Singleton
-    fun provideProductApi(okHttpClient: OkHttpClient): ProductApi {
-        return Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create())
-            .build()
-            .create(ProductApi::class.java)
-    }
-}
-```
-
-### Navigation Setup
-
-```kotlin
-// MainActivity
-@AndroidEntryPoint
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            ProductSearchTheme {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = "search"
-                ) {
-                    composable("search") {
-                        SearchScreen(navController = navController)
-                    }
-                    composable("product_detail/{productId}") { backStackEntry ->
-                        val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
-                        ProductDetailScreen(productId = productId)
-                    }
-                }
-            }
-        }
-    }
-}
-```
-
