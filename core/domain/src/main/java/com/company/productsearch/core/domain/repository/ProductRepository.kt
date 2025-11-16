@@ -1,6 +1,7 @@
 package com.company.productsearch.core.domain.repository
 
 import com.company.productsearch.core.domain.model.Product
+import com.company.productsearch.core.domain.model.ProductDetails
 
 interface ProductRepository {
     suspend fun searchProducts(
@@ -11,5 +12,10 @@ interface ProductRepository {
     ): Result<List<Product>>
     
     suspend fun getProductById(id: String): Result<Product>
+    
+    suspend fun getProductDetails(
+        productId: String,
+        lang: String = "en"
+    ): Result<ProductDetails>
 }
 
