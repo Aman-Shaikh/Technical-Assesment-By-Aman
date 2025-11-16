@@ -21,3 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "TechnicalAssesmentByAman"
 include(":app")
+include(":core:common")
+include(":core:data")
+include(":core:domain")
+include(":feature:search")
+include(":feature:productdetail")
