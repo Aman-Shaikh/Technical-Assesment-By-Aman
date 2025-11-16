@@ -26,5 +26,8 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
+
+    // Koin
+    api(libs.koin.android)
 }
 
