@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -28,6 +29,14 @@ dependencies {
     // Koin
     api(libs.koin.android)
     api(libs.koin.androidx.compose)
+    
+    // Ktor
+    api(libs.ktor.client.core)
+    api(libs.ktor.client.cio)
+    api(libs.ktor.client.content.negotiation)
+    api(libs.ktor.serialization.kotlinx.json)
+    api(libs.ktor.client.logging)
+    api(libs.kotlinx.serialization.json)
     
     implementation(libs.androidx.core.ktx)
     implementation(platform(libs.androidx.compose.bom))
