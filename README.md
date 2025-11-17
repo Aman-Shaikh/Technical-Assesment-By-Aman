@@ -38,8 +38,7 @@ feature/productdetail/ // Detail UI and ViewModel
 
 ## Getting Started
 1. **Prerequisites**  
-   - Android Studio Iguana (or newer)  
-   - JDK 17  
+   - Android Studio: This project is built on Android Studio Narwhal 4 Feature Drop | 2025.1.4
    - Android SDK 34
 2. **Clone & Sync**
    ```bash
