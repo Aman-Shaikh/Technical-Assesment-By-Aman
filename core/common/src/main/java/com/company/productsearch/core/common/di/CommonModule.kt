@@ -39,15 +39,6 @@ val networkModule = module {
                 logger = Logger.DEFAULT
                 level = LogLevel.ALL
             }
-            
-
-            // Engine configuration
-            engine {
-                config {
-                    followRedirects(true)
-                    // TODO Add SSL Pinning
-                }
-            }
         }
     }
 }
