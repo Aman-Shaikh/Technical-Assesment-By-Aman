@@ -1,8 +1,13 @@
-# Android Product Search App - Architecture Document
+# Android Product Search App – Architecture
 
-## 1. Summary
+## 1. Overview
 
-A modern Android product search application built with Kotlin, Jetpack Compose, and Clean Architecture principles. The app implements a single-activity architecture with feature-based modules, supporting product search, result listing with pagination, and detailed product views. The architecture emphasizes testability, offline support, performance optimization, and production-ready concerns including dependency injection, reactive data flows, caching strategies, and comprehensive error handling.
+The application is a lightweight Android showcase built with Kotlin, Jetpack Compose, Paging 3, and a feature-based modular structure. It exposes two end-user capabilities:
+
+- Searching the BestBuy catalog through a paged list.
+- Inspecting a product’s detailed information.
+
+Navigation is handled inside a single `MainActivity` by swapping the `SearchScreen` and `ProductDetailScreen` composables based on user selection. Business logic is organized with a Repository + Use Case pattern, while dependency management relies on Koin.
 
 ---
 
@@ -10,561 +15,110 @@ A modern Android product search application built with Kotlin, Jetpack Compose, 
 
 ```
 app/
-├── build.gradle.kts
-└── src/main/java/com/company/productsearch/
-    ├── ProductSearchApplication.kt
-    └── di/AppModule.kt // Koin module
+├── src/main/java/com/company/productsearch/ProductSearchApplication.kt
+├── src/main/java/com/company/productsearch/di/AppModule.kt
+└── src/main/java/com/example/technicalassesmentbyaman/MainActivity.kt
 
 core/
 ├── common/
-│   └── src/main/java/com/company/productsearch/core/common/
-│       ├── di/CommonModule.kt // Koin module for network, db
-│       ├── ui/Theme.kt
-│       ├── ui/components/
-│       ├── utils/Result.kt
-│       └── utils/Extensions.kt
+│   ├── config/AppConfig.kt
+│   └── di/CommonModule.kt
 ├── data/
-│   └── src/main/java/com/company/productsearch/core/data/
-│       ├── local/
-│       │   ├── ProductDao.kt
-│       │   ├── SearchQueryDao.kt
-│       │   └── ProductDatabase.kt
-│       ├── remote/
-│       │   ├── ProductApi.kt // Ktor API service
-│       │   ├── ProductDto.kt
-│       │   └── SearchResponseDto.kt
-│       └── repository/
-│           └── ProductRepositoryImpl.kt
+│   ├── di/DataModule.kt
+│   ├── remote/ProductApi.kt + DTOs/Mappers
+│   └── repository/ProductRepositoryImpl.kt
 └── domain/
-    └── src/main/java/com/company/productsearch/core/domain/
-        ├── model/Product.kt
-        ├── repository/ProductRepository.kt
-        └── usecase/
-            ├── SearchProductsUseCase.kt
-            └── GetProductDetailsUseCase.kt
+    ├── di/DomainModule.kt
+    ├── model/Product.kt, ProductDetails.kt
+    ├── repository/ProductRepository.kt
+    └── usecase/SearchProductsUseCase.kt, GetProductDetailsUseCase.kt
 
 feature/
 ├── search/
-│   └── src/main/java/com/company/productsearch/feature/search/
-│       ├── di/SearchModule.kt // Koin module
-│       ├── ui/SearchScreen.kt
-│       ├── ui/SearchViewModel.kt
-│       └── ui/components/ProductItem.kt
+│   ├── di/SearchModule.kt
+│   └── ui/SearchScreen.kt, SearchViewModel.kt, SearchPagingSource.kt, ProductItem.kt
 └── productdetail/
-    └── src/main/java/com/company/productsearch/feature/productdetail/
-        ├── di/ProductDetailModule.kt // Koin module
-        ├── ui/ProductDetailScreen.kt
-        └── ui/ProductDetailViewModel.kt
+    ├── di/ProductDetailModule.kt
+    └── ui/ProductDetailScreen.kt, ProductDetailViewModel.kt
 ```
+
+Each Android module owns its resources, Gradle configuration, and dependency graph bindings, keeping feature code isolated.
 
 ---
 
 ## 3. Module Responsibilities
 
-### app
-- Application entry point
-- Dependency injection root (Koin initialization in Application class)
-- MainActivity with Navigation Compose setup
-- App-level theme and configuration
-
-### core:common
-- Shared utilities and extensions
-- Network configuration (Ktor, CIO engine, plugins)
-- Database setup (Room)
-- Common UI components (loading states, error states, empty states)
-- Result wrapper for error handling
-- Koin modules for shared dependencies (network, database)
-
-### core:data
-- Data layer implementation
-- Remote data sources (Ktor API services, DTOs, mappers)
-- Local data sources (Room DAOs, entities)
-- Repository implementations
-- Data mapping (DTO → Domain model)
-- Caching logic and sync strategies
-
-### core:domain
-- Business logic layer
-- Domain models (pure Kotlin data classes)
-- Repository interfaces
-- Use cases (business logic orchestration)
-- No Android dependencies
-
-### feature:search
-- Search feature UI and ViewModel
-- Search input handling
-- Product list display with pagination
-- Navigation to product detail
-- Feature-specific Koin modules
-
-### feature:productdetail
-- Product detail UI and ViewModel
-- Product information display
-- Add to cart functionality
-- Feature-specific Koin modules
+- `app`: Initializes Koin (`ProductSearchApplication`), hosts the Compose hierarchy in `MainActivity`, and wires the two feature screens without a navigation component.
+- `core:common`: Defines app-wide configuration via `AppConfig` and wires a Ktor `HttpClient` (OkHttp engine, ContentNegotiation, Logging). There are no Room/database or UI utilities at present.
+- `core:data`: Implements the remote API contract (`ProductApiImpl`) and the repository layer (`ProductRepositoryImpl`). Mapping from DTOs to domain models lives alongside the remote definitions.
+- `core:domain`: Holds pure Kotlin data models, the `ProductRepository` interface, and use cases that enforce lightweight input validation plus configuration defaults.
+- `feature:search`: Presents the search UI and handles pagination. `SearchViewModel` manages query state, triggers searches, and exposes `Flow<PagingData<Product>>` backed by `SearchPagingSource`, which calls the `SearchProductsUseCase`.
+- `feature:productdetail`: Displays a product’s expanded information. `ProductDetailViewModel` invokes `GetProductDetailsUseCase`, collects the result into `StateFlow`, and the Compose screen renders loading/error/success states.
 
 ---
 
-## 4. Key Interfaces & Sample Signatures
+## 4. Key Application Flows
 
-### Domain Models
-
-```kotlin
-// core/domain/src/main/java/com/company/productsearch/core/domain/model/Product.kt
-data class Product(
-    val id: String,
-    val title: String,
-    val price: Double,
-    val currency: String,
-    val imageUrl: String,
-    val description: String
-)
+### Search
 ```
-
-### Repository Interface
-
-```kotlin
-// core/domain/src/main/java/com/company/productsearch/core/domain/repository/ProductRepository.kt
-interface ProductRepository {
-    fun searchProducts(
-        query: String,
-        page: Int = 1,
-        pageSize: Int = 20
-    ): Flow<PagingData<Product>>
-    
-    suspend fun getProductById(id: String): Result<Product>
-    
-    suspend fun refreshSearchResults(query: String): Result<Unit>
-}
+SearchScreen (Compose) → SearchViewModel.performSearch()
+    → MutableSharedFlow<String> search requests
+    → SearchPagingSource(query, useCase, config)
+    → SearchProductsUseCase(query, lang?, page?, pageSize?)
+    → ProductRepository.searchProducts(...)
+    → ProductApi.searchProducts(...)
 ```
+`SearchPagingSource` builds paging metadata (next/prev page keys) based on API responses. The UI observes `LazyPagingItems`, reacts to loading states with progress indicators, and surfaces errors via snackbars.
 
-### Use Cases
-
-```kotlin
-// core/domain/src/main/java/com/company/productsearch/core/domain/usecase/SearchProductsUseCase.kt
-class SearchProductsUseCase(
-    private val repository: ProductRepository
-) {
-    operator fun invoke(
-        query: String,
-        pageSize: Int = 20
-    ): Flow<PagingData<Product>> {
-        return repository.searchProducts(query, pageSize = pageSize)
-            .cachedIn(viewModelScope)
-    }
-}
-
-// core/domain/src/main/java/com/company/productsearch/core/domain/usecase/GetProductDetailsUseCase.kt
-class GetProductDetailsUseCase(
-    private val repository: ProductRepository
-) {
-    suspend operator fun invoke(productId: String): Result<Product> {
-        return repository.getProductById(productId)
-    }
-}
+### Product Detail
 ```
-
-### ViewModel
-
-```kotlin
-// feature/search/src/main/java/com/company/productsearch/feature/search/ui/SearchViewModel.kt
-// Injected via Koin
-class SearchViewModel(
-    private val searchProductsUseCase: SearchProductsUseCase
-) : ViewModel() {
-    
-    private val _uiState = MutableStateFlow(SearchUiState())
-    val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
-    
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    
-    val products: Flow<PagingData<Product>> = searchQuery
-        .debounce(300)
-        .filter { it.length >= 2 }
-        .flatMapLatest { query ->
-            searchProductsUseCase(query)
-        }
-        .cachedIn(viewModelScope)
-    
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
-    }
-    
-    fun onProductClicked(productId: String) {
-        // Navigate to detail
-    }
-}
-
-data class SearchUiState(
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
+ProductDetailScreen → ProductDetailViewModel.loadProductDetails(productId)
+    → GetProductDetailsUseCase(productId, lang)
+    → ProductRepository.getProductDetails(...)
+    → ProductApi.getProductDetails(...)
 ```
-
-### Repository Implementation
-
-```kotlin
-// core/data/src/main/java/com/company/productsearch/core/data/repository/ProductRepositoryImpl.kt
-class ProductRepositoryImpl(
-    private val remoteDataSource: ProductRemoteDataSource,
-    private val localDataSource: ProductLocalDataSource,
-    private val mapper: ProductMapper
-) : ProductRepository {
-    
-    override fun searchProducts(
-        query: String,
-        page: Int,
-        pageSize: Int
-    ): Flow<PagingData<Product>> {
-        return Pager(
-            config = PagingConfig(pageSize = pageSize, enablePlaceholders = false),
-            remoteMediator = ProductRemoteMediator(query, remoteDataSource, localDataSource),
-            pagingSourceFactory = { localDataSource.searchProducts(query) }
-        ).flow.map { pagingData ->
-            pagingData.map { entity -> mapper.toDomain(entity) }
-        }
-    }
-    
-    override suspend fun getProductById(id: String): Result<Product> {
-        return try {
-            // Try cache first
-            localDataSource.getProductById(id)?.let { entity ->
-                return Result.success(mapper.toDomain(entity))
-            }
-            
-            // Fallback to network
-            val dto = remoteDataSource.getProductById(id)
-            val product = mapper.toDomain(dto)
-            
-            // Cache for offline
-            localDataSource.insertProduct(mapper.toEntity(dto))
-            
-            Result.success(product)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-}
-```
-
-### DTOs (with Kotlinx.Serialization)
-
-```kotlin
-// core/data/src/main/java/com/company/productsearch/core/data/remote/ProductDto.kt
-@Serializable
-data class ProductDto(
-    @SerialName("id") val id: String,
-    @SerialName("title") val title: String,
-    @SerialName("price") val price: Double,
-    @SerialName("currency") val currency: String,
-    @SerialName("image_url") val imageUrl: String,
-    @SerialName("description") val description: String
-)
-
-@Serializable
-data class SearchResponseDto(
-    @SerialName("products") val products: List<ProductDto>,
-    @SerialName("total") val total: Int,
-    @SerialName("page") val page: Int,
-    @SerialName("page_size") val pageSize: Int
-)
-```
-
-### Dependency Injection (Koin)
-
-```kotlin
-// app/src/main/java/com/company/productsearch/di/AppModule.kt
-val appModule = module {
-    // ViewModel for Search feature
-    viewModel { SearchViewModel(get()) }
-    
-    // ViewModel for Product Detail feature
-    viewModel { ProductDetailViewModel(get()) }
-}
-
-// core/common/src/main/java/com/company/productsearch/di/CommonModule.kt
-val networkModule = module {
-    single {
-        HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(Json {
-                    ignoreUnknownKeys = true
-                    prettyPrint = true
-                })
-            }
-            install(HttpRequestRetry) {
-                // ... retry config
-            }
-        }
-    }
-}
-
-val dataModule = module {
-    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get()) }
-    single<ProductRemoteDataSource> { ProductRemoteDataSourceImpl(get()) }
-    // ... other data sources, DAOs, mappers
-}
-
-val domainModule = module {
-    factory { SearchProductsUseCase(get()) }
-    factory { GetProductDetailsUseCase(get()) }
-}
-
-// In Application class
-class ProductSearchApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        startKoin {
-            androidContext(this@ProductSearchApplication)
-            modules(appModule, networkModule, dataModule, domainModule)
-        }
-    }
-}
-```
+The ViewModel tracks a simple `ProductDetailUiState` (data/loading/error). The screen triggers detail loading through `LaunchedEffect` and shows snackbars for failures.
 
 ---
 
-## 5. Data Flow Sequence & Threading
+## 5. Dependency Injection
 
-### Search Flow
+All dependencies are registered with Koin:
 
-```
-User Input → ViewModel.onSearchQueryChanged()
-    ↓
-Debounce (300ms) on Main thread
-    ↓
-Filter (min 2 chars)
-    ↓
-SearchProductsUseCase.invoke()
-    ↓
-ProductRepository.searchProducts()
-    ↓
-Pager with RemoteMediator
-    ↓
-[RemoteMediator] Check local cache → Load from DB (IO thread)
-    ↓
-If cache stale/missing → RemoteDataSource.fetch() (IO thread)
-    ↓
-Map DTO → Domain model (IO thread)
-    ↓
-Insert into Room DB (IO thread)
-    ↓
-PagingData emitted to Flow
-    ↓
-ViewModel collects → Update UI (Main thread via collectAsLazyPagingItems)
-    ↓
-Compose recomposition → Display products
-```
+- `configModule`: `AppConfig` singleton (`AppConfigImpl`).
+- `networkModule`: Configured Ktor `HttpClient`.
+- `dataModule`: `ProductApi` + `ProductRepository` singletons.
+- `domainModule`: Factories for `SearchProductsUseCase` and `GetProductDetailsUseCase`.
+- `searchModule` / `productDetailModule`: Feature ViewModel bindings.
 
-### Threading Model
-
-- **Main Thread**: UI updates, Compose recomposition, ViewModel state changes
-- **IO Thread (Dispatchers.IO)**: Network calls, database operations, DTO mapping
-- **Default Thread (Dispatchers.Default)**: CPU-intensive operations (if any)
-
-### Backpressure Handling
-
-- **Flow**: Uses `flatMapLatest` to cancel previous searches when new query arrives
-- **Paging 3**: Built-in backpressure handling via `PagingData`
-- **Debounce**: Prevents excessive API calls during typing
-- **CachedIn**: Caches PagingData in ViewModel scope to prevent re-fetching
+`ProductSearchApplication` starts Koin with the full list of modules. `MainActivity` and Compose screens resolve feature ViewModels through `koinViewModel()`.
 
 ---
 
-## 6. Caching & Sync Strategy
+## 6. Error Handling & UI State
 
-### Multi-Layer Caching
-
-1. **In-Memory Cache (L1)**
-   - ViewModel state holds current search results
-   - PagingData cached via `cachedIn(viewModelScope)`
-   - Lifecycle: Cleared when ViewModel cleared
-
-2. **Database Cache (L2 - Room)**
-   - Products stored in Room with search query association
-   - Search queries cached separately with timestamp
-   - Lifecycle: Persistent across app restarts
-   - Stale threshold: 5 minutes for search results, 1 hour for product details
-
-3. **Network (L3)**
-   - API as source of truth
-   - Used when cache miss or stale
-
-### Stale-While-Revalidate Strategy
-
-```kotlin
-// RemoteMediator implementation pattern
-class ProductRemoteMediator {
-    override suspend fun load(
-        loadType: LoadType,
-        state: PagingState<Int, ProductEntity>
-    ): MediatorResult {
-        return try {
-            val cacheTime = getCacheTimestamp(query)
-            val isStale = System.currentTimeMillis() - cacheTime > STALE_THRESHOLD
-            
-            // Return cached data immediately if available
-            val cachedData = localDataSource.getCachedResults(query)
-            
-            // Fetch fresh data in background if stale
-            if (isStale || loadType == LoadType.REFRESH) {
-                val freshData = remoteDataSource.fetch(query, page)
-                localDataSource.insertAll(freshData)
-                localDataSource.updateCacheTimestamp(query)
-            }
-            
-            MediatorResult.Success(endOfPaginationReached = false)
-        } catch (e: Exception) {
-            // Return cached data even on error
-            if (cachedData.isNotEmpty()) {
-                MediatorResult.Success(endOfPaginationReached = true)
-            } else {
-                MediatorResult.Error(e)
-            }
-        }
-    }
-}
-```
-
-### Pagination Behavior
-
-- **Initial Load**: 20 items
-- **Page Size**: 20 items per page
-- **Prefetch Distance**: 5 items before end of list
-- **Placeholders**: Disabled for simplicity
-- **Remote Mediator**: Handles network pagination and local caching
+- Network exceptions are captured in the repository and wrapped in `Result`.
+- Use cases bubble the `Result` back to ViewModels.
+- `SearchScreen` inspects `LoadState.Error` from `LazyPagingItems` and shows a snackbar with either the server-provided message or a localized fallback.
+- `ProductDetailViewModel` stores the exception message inside `ProductDetailUiState` and the screen consumes/clears it to avoid duplicate snackbars.
+- There is no bespoke retry helper yet; the Compose UI allows the user to trigger another search or reopen the detail screen.
 
 ---
 
-## 7. Error Handling, Retry & Offline Patterns
+## 7. Testing
 
-### Result Wrapper
-
-```kotlin
-// core/common/src/main/java/com/company/productsearch/core/common/utils/Result.kt
-sealed class Result<out T> {
-    data class Success<T>(val data: T) : Result<T>()
-    data class Error(val exception: Throwable) : Result<Nothing>()
-    object Loading : Result<Nothing>()
-}
-```
-
-### Error Types
-
-```kotlin
-sealed class AppError : Exception() {
-    object NetworkError : AppError()
-    object NotFoundError : AppError()
-    object ServerError : AppError()
-    data class UnknownError(val cause: Throwable) : AppError()
-}
-```
-
-### Retry Policy (Ktor)
-
-```kotlin
-// Ktor HttpClient plugin for retry with exponential backoff
-val httpClient = HttpClient(CIO) {
-    install(HttpRequestRetry) {
-        retryOnServerErrors(maxRetries = 3)
-        exponentialDelay()
-        modifyRequest { request ->
-            request.headers.append("X-RETRY-COUNT", retryCount.toString())
-        }
-    }
-}
-```
-
-### UI Error Handling
-
-```kotlin
-// ViewModel error handling
-sealed class UiState<out T> {
-    data class Success<T>(val data: T) : UiState<T>()
-    data class Error(val message: String, val retry: () -> Unit) : UiState<Nothing>()
-    object Loading : UiState<Nothing>()
-    object Empty : UiState<Nothing>()
-}
-
-// One-shot side effects for errors
-private val _uiEvent = Channel<UiEvent>()
-val uiEvent = _uiEvent.receiveAsFlow()
-
-sealed class UiEvent {
-    data class ShowError(val message: String) : UiEvent()
-    data class NavigateToDetail(val productId: String) : UiEvent()
-}
-
-// In Compose
-LaunchedEffect(Unit) {
-    viewModel.uiEvent.collect { event ->
-        when (event) {
-            is UiEvent.ShowError -> {
-                scaffoldState.snackbarHostState.showSnackbar(event.message)
-            }
-            is UiEvent.NavigateToDetail -> {
-                navController.navigate("product_detail/${event.productId}")
-            }
-        }
-    }
-}
-```
-
-### Offline Support
-
-- **Read Operations**: Always try cache first, show cached data immediately
-- **Write Operations**: Queue for sync when online (if needed in future)
-- **Network Status**: Monitor connectivity via `ConnectivityManager` or `NetworkCallback`
-- **UI Indication**: Show offline indicator when network unavailable
-- **Graceful Degradation**: Show cached results with "Offline" badge
+Unit coverage currently focuses on the domain layer. Example: `GetProductDetailsUseCaseTest` verifies input validation and repository delegation with MockK. Additional tests (Paging source, repository integration, Compose UI) can be added incrementally; the architecture keeps pure Kotlin layers free of Android dependencies to ease testing.
 
 ---
 
-## 8. Testing Strategy & Examples
+## 8. Future Caching Strategy
 
-### Testing Matrix
+Caching is not implemented today—the repository always hits the remote API. A pragmatic next iteration could follow these steps:
 
-| Component | Test Type | Framework | Coverage Target |
-|-----------|-----------|-----------|-----------------|
-| Use Cases | Unit | JUnit 5, MockK | 90%+ |
-| ViewModels | Unit | JUnit 5, MockK, Turbine, Koin Test | 85%+ |
-| Repositories | Integration | JUnit 5, Room in-memory DB, Koin Test | 80%+ |
-| Mappers | Unit | JUnit 5 | 95%+ |
-| UI Components | UI | Compose Test, Espresso | 70%+ |
-| Navigation | Integration | Navigation Testing | 80%+ |
+1. Introduce a Room database inside `core:data` with entities for summarized products and detailed entries.
+2. Replace `SearchPagingSource` with a Pager backed by Room plus a `RemoteMediator` to synchronize pages while persisting scrollable results locally.
+3. Enhance `ProductRepository` to read from Room first (both list and detail) and update entries after each successful network call.
+4. Record retrieval timestamps per query/sku; if data is older than a configurable SLA, fetch in the background while still showing cached values (stale-while-revalidate).
+5. Surface cache state to the UI (e.g., badge indicating offline data) and add a manual refresh option.
 
-### Sample Unit Test - Use Case
-
-```kotlin
-// core/domain/src/test/java/com/company/productsearch/core/domain/usecase/SearchProductsUseCaseTest.kt
-@ExtendWith(MockKExtension::class)
-class SearchProductsUseCaseTest {
-
-    @MockK
-    private lateinit var repository: ProductRepository
-
-    private lateinit var useCase: SearchProductsUseCase
-
-    @Before
-    fun setup() {
-        MockKAnnotations.init(this)
-        useCase = SearchProductsUseCase(repository)
-    }
-
-    @Test
-    fun `invoke should return flow of paging data from repository`() = runTest {
-        // Given
-        val query = "laptop"
-        val expectedProducts = listOf(
-            Product("1", "Laptop", 999.99, "USD", "url", "desc")
-        )
-        val pagingData = PagingData.from(expectedProducts)
-
-        every { repository.searchProducts(query, pageSize = 20) } returns flowOf(pagingData)
-
-        // When
-        val result = use
-    }
-}
-```
+This approach would improve offline resilience, reduce API usage, and align nicely with the existing modular boundaries (Room stays in `core:data`, domain contracts remain unchanged).
