@@ -63,3 +63,11 @@ feature/productdetail/ // Detail UI and ViewModel
 - Expand test coverage to Paging sources, repositories, and Compose UI.
 - Add offline indicators and retry affordances around network calls.
 
+## ScreenShots
+![img.png](app/src/main/res/Screenshots/img.png)
+
+![img_1.png](app/src/main/res/Screenshots/img_1.png)
+
+![img_2.png](app/src/main/res/Screenshots/img_2.png)
+
+![img_3.png](app/src/main/res/Screenshots/img_3.png)
