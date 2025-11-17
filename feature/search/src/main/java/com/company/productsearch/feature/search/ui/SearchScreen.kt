@@ -56,7 +56,8 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val listState = rememberLazyListState()
+    val listState = viewModel.listState
+    val resetScroll by viewModel.resetScroll.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val defaultErrorMessage = stringResource(R.string.error_occurred)
     val products = viewModel.products.collectAsLazyPagingItems()
@@ -77,13 +78,31 @@ fun SearchScreen(
             snackbarHostState.showSnackbar(message)
         }
     }
-    
-    LaunchedEffect(uiState.lastSearchedQuery) {
-        if (uiState.lastSearchedQuery != null) {
+
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        viewModel.updateScrollPosition(
+            index = listState.firstVisibleItemIndex,
+            offset = listState.firstVisibleItemScrollOffset
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        listState.scrollToItem(
+            viewModel.savedIndex,
+            viewModel.savedOffset
+        )
+    }
+
+
+
+    LaunchedEffect(resetScroll) {
+        if (resetScroll) {
             listState.scrollToItem(0)
+            viewModel.onScrollResetHandled()
         }
     }
-    
+
+
     Scaffold(
         topBar = {
             TopAppBar(

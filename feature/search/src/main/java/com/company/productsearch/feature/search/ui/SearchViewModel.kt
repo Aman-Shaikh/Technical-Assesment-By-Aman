@@ -1,5 +1,6 @@
 package com.company.productsearch.feature.search.ui
 
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -34,6 +35,19 @@ class SearchViewModel(
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+    var listState: LazyListState = LazyListState()
+        private set
+
+    private val _resetScroll = MutableStateFlow(false)
+    val resetScroll = _resetScroll.asStateFlow()
+
+    fun updateScrollPosition(index: Int, offset: Int) {
+        savedIndex = index
+        savedOffset = offset
+    }
+
+    var savedIndex = 0
+    var savedOffset = 0
 
     private val _searchRequests = MutableSharedFlow<String>(
         extraBufferCapacity = 1,
@@ -76,10 +90,16 @@ class SearchViewModel(
         val query = _uiState.value.query.trim()
         if (query.length < MIN_QUERY_LENGTH) return
 
+        _resetScroll.value = true
+
         viewModelScope.launch {
             _uiState.update { it.copy(lastSearchedQuery = query) }
             _searchRequests.emit(query)
         }
+    }
+
+    fun onScrollResetHandled() {
+        _resetScroll.value = false
     }
 
     fun onProductClicked(productId: String) {
