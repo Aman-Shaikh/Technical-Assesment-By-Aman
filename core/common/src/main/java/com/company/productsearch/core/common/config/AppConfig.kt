@@ -15,6 +15,6 @@ class AppConfigImpl : AppConfig {
     override val baseUrl: String = "http://www.bestbuy.ca/api/v2/json"
     override val defaultLanguage: String = "en"
     override val defaultPage: Int = 1
-    override val defaultPageSize: Int = 8
+    override val defaultPageSize: Int = 24
 }
 
