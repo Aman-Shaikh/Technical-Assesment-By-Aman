@@ -28,7 +28,7 @@ class GetProductDetailsUseCaseTest {
     fun `invoke with blank product ID returns failure`() = runTest {
         val result = getProductDetailsUseCase(" ")
 
-        assertTrue(result.isSuccess)
+        assertTrue(result.isFailure)
         assertEquals("Product ID cannot be empty", result.exceptionOrNull()?.message)
     }
 
