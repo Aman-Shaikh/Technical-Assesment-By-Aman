@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -43,6 +42,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
 import org.koin.androidx.compose.koinViewModel
 import com.company.productsearch.feature.search.ui.components.ProductItem
 import com.company.productsearch.feature.search.R
@@ -58,24 +59,28 @@ fun SearchScreen(
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val defaultErrorMessage = stringResource(R.string.error_occurred)
+    val products = viewModel.products.collectAsLazyPagingItems()
+    val query = uiState.query.trim()
+    val isQueryShort = query.length < 2
+    val hasActiveSearch = uiState.lastSearchedQuery != null
+    val isRefreshing = products.loadState.refresh is LoadState.Loading
+    val isInitialLoading = hasActiveSearch && isRefreshing && products.itemCount == 0
+    val isAppending = hasActiveSearch && products.loadState.append is LoadState.Loading
+    val searchEnabled = !isQueryShort
     
-    // Show error snackbar
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            val errorMessage = error.ifEmpty {
-                defaultErrorMessage
-            }
-            snackbarHostState.showSnackbar(errorMessage)
-            viewModel.clearError()
+    LaunchedEffect(products.loadState) {
+        val errorState = products.loadState.refresh as? LoadState.Error
+            ?: products.loadState.append as? LoadState.Error
+            ?: products.loadState.prepend as? LoadState.Error
+        errorState?.let { error ->
+            val message = error.error.message?.takeIf { it.isNotBlank() } ?: defaultErrorMessage
+            snackbarHostState.showSnackbar(message)
         }
     }
     
-    // Load more when scrolling near the end
-    LaunchedEffect(listState) {
-        val layoutInfo = listState.layoutInfo
-        val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()
-        if (lastVisibleItem != null && lastVisibleItem.index >= layoutInfo.totalItemsCount - 3) {
-            viewModel.loadMore()
+    LaunchedEffect(uiState.lastSearchedQuery) {
+        if (uiState.lastSearchedQuery != null) {
+            listState.scrollToItem(0)
         }
     }
     
@@ -133,7 +138,7 @@ fun SearchScreen(
                     ),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                         onSearch = {
-                            if (uiState.query.trim().length >= 2) {
+                            if (!isQueryShort) {
                                 viewModel.performSearch()
                                 keyboardController?.hide()
                             }
@@ -142,23 +147,28 @@ fun SearchScreen(
                 )
                 
                 IconButton(
-                    onClick = { viewModel.performSearch() },
+                    onClick = {
+                        if (searchEnabled) {
+                            viewModel.performSearch()
+                            keyboardController?.hide()
+                        }
+                    },
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            color = if (uiState.query.trim().length >= 2) {
+                            color = if (searchEnabled) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
                             }
                         ),
-                    enabled = uiState.query.trim().length >= 2 && !uiState.isLoading
+                    enabled = searchEnabled
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = stringResource(R.string.search_button_content_description),
-                        tint = if (uiState.query.trim().length >= 2) {
+                        tint = if (searchEnabled) {
                             MaterialTheme.colorScheme.onPrimary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -175,26 +185,12 @@ fun SearchScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 when {
-                    uiState.isLoading && uiState.products.isEmpty() -> {
-                        // Initial loading
+                    isInitialLoading -> {
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
-                    uiState.products.isEmpty() && uiState.query.length >= 2 -> {
-                        // No results
-                        Text(
-                            text = stringResource(R.string.no_products_found),
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.Center)
-                                .padding(16.dp)
-                        )
-                    }
-                    uiState.query.length < 2 -> {
-                        // Empty state
+                    isQueryShort && !hasActiveSearch -> {
                         Text(
                             text = stringResource(R.string.enter_at_least_2_characters),
                             style = MaterialTheme.typography.bodyLarge,
@@ -205,8 +201,29 @@ fun SearchScreen(
                                 .padding(16.dp)
                         )
                     }
+                    !hasActiveSearch -> {
+                        Text(
+                            text = stringResource(R.string.search_products_hint),
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.Center)
+                                .padding(16.dp)
+                        )
+                    }
+                    hasActiveSearch && products.itemCount == 0 && products.loadState.refresh is LoadState.NotLoading -> {
+                        Text(
+                            text = stringResource(R.string.no_products_found),
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.Center)
+                                .padding(16.dp)
+                        )
+                    }
                     else -> {
-                        // Product list
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
@@ -214,20 +231,28 @@ fun SearchScreen(
                             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
                         ) {
                             items(
-                                items = uiState.products,
-                                key = { it.id }
-                            ) { product ->
-                                ProductItem(
-                                    product = product,
-                                    onClick = { productId ->
-                                        onProductClick(productId)
-                                        viewModel.onProductClicked(productId)
-                                    }
-                                )
+                                count = products.itemCount,
+                                key = { index -> products[index]?.id ?: index }
+                            ) { index ->
+                                val product = products[index]
+                                if (product != null) {
+                                    ProductItem(
+                                        product = product,
+                                        onClick = { productId ->
+                                            onProductClick(productId)
+                                            viewModel.onProductClicked(productId)
+                                        }
+                                    )
+                                } else {
+                                    Spacer(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(80.dp)
+                                    )
+                                }
                             }
-                            
-                            // Loading indicator at the bottom
-                            if (uiState.isLoading && uiState.products.isNotEmpty()) {
+
+                            if (isAppending) {
                                 item {
                                     Box(
                                         modifier = Modifier
