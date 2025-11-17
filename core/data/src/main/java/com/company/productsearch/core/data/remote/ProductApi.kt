@@ -10,7 +10,7 @@ interface ProductApi {
         query: String,
         lang: String = "en",
         page: Int = 1,
-        pageSize: Int = 24
+        pageSize: Int = 8
     ): SearchResponseDto
     
     suspend fun getProductDetails(

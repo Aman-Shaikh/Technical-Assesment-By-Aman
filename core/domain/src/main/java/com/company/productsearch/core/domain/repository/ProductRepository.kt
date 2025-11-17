@@ -8,7 +8,7 @@ interface ProductRepository {
         query: String,
         lang: String = "en",
         page: Int = 1,
-        pageSize: Int = 24
+        pageSize: Int = 8
     ): Result<List<Product>>
     
     suspend fun getProductById(id: String): Result<Product>
