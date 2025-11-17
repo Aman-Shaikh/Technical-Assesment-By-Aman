@@ -107,7 +107,7 @@ All dependencies are registered with Koin:
 
 ## 7. Testing
 
-Unit coverage currently focuses on the domain layer. Example: `GetProductDetailsUseCaseTest` verifies input validation and repository delegation with MockK. Additional tests (Paging source, repository integration, Compose UI) can be added incrementally; the architecture keeps pure Kotlin layers free of Android dependencies to ease testing.
+Unit coverage currently focuses on the domain and viewmodel layer. Example: `GetProductDetailsUseCaseTest` verifies input validation and repository delegation with MockK. Additional tests (Paging source, repository integration, Compose UI) can be added incrementally; the architecture keeps pure Kotlin layers free of Android dependencies to ease testing.
 
 ---
 

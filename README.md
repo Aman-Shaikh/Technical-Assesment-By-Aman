@@ -24,6 +24,7 @@ See `ARCHITECTURE.md` for the full breakdown and future caching plan.
 - Ktor (OkHttp engine) with Kotlinx Serialization
 - Koin for dependency injection
 - Coil for image loading
+- Unit tests: JUnit 4, MockK, kotlinx-coroutines-test
 
 ## Project Structure
 ```
@@ -53,10 +54,9 @@ feature/productdetail/ // Detail UI and ViewModel
 4. **Install** the generated APK from `app/build/outputs/apk/debug/`.
 
 ## Tests
-Run all unit tests:
-```bash
-./gradlew test
-```
+- Use case tests live under `core/domain/src/test`.
+- ViewModel tests live under `feature/search/src/test` and `feature/productdetail/src/test`.
+- To run them in Android Studio, open the desired test class and click the green Run/Debug arrow in the gutter or use the “Run Tests” (play button) toolbar action for the module/package.
 
 ## Future Enhancements
 - Add Room-backed caching plus a Paging 3 `RemoteMediator`.
