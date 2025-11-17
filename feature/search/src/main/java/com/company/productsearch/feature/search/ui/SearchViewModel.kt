@@ -1,83 +1,113 @@
 package com.company.productsearch.feature.search.ui
 
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.company.productsearch.core.common.config.AppConfig
 import com.company.productsearch.core.domain.model.Product
 import com.company.productsearch.core.domain.usecase.SearchProductsUseCase
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class SearchUiState(
     val query: String = "",
-    val products: List<Product> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val currentPage: Int = 1,
-    val totalPages: Int = 1,
-    val hasMore: Boolean = false
+    val lastSearchedQuery: String? = null
 )
 
 class SearchViewModel(
     private val searchProductsUseCase: SearchProductsUseCase,
     private val appConfig: AppConfig
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
-    
-    fun onSearchQueryChanged(query: String) {
-        _uiState.value = _uiState.value.copy(query = query)
+    var listState: LazyListState = LazyListState()
+        private set
+
+    private val _resetScroll = MutableStateFlow(false)
+    val resetScroll = _resetScroll.asStateFlow()
+
+    fun updateScrollPosition(index: Int, offset: Int) {
+        savedIndex = index
+        savedOffset = offset
     }
-    
+
+    var savedIndex = 0
+    var savedOffset = 0
+
+    private val _searchRequests = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    internal val searchRequests = _searchRequests.asSharedFlow()
+
+    val products: Flow<PagingData<Product>> = searchRequests
+        .onStart { emit("") }
+        .flatMapLatest { query ->
+            if (query.length < MIN_QUERY_LENGTH) {
+                flowOf(PagingData.empty())
+            } else {
+                Pager(
+                    config = PagingConfig(
+                        pageSize = appConfig.defaultPageSize,
+                        initialLoadSize = appConfig.defaultPageSize,
+                        prefetchDistance = 1,
+                        enablePlaceholders = false
+                    )
+                ) {
+                    SearchPagingSource(query, searchProductsUseCase, appConfig)
+                }.flow
+            }
+        }
+        .cachedIn(viewModelScope)
+
+    fun onSearchQueryChanged(query: String) {
+        _uiState.update { it.copy(query = query) }
+        if (query.trim().length < MIN_QUERY_LENGTH && _uiState.value.lastSearchedQuery != null) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(lastSearchedQuery = null) }
+                _searchRequests.emit("")
+            }
+        }
+    }
+
     fun performSearch() {
         val query = _uiState.value.query.trim()
-        if (query.length >= 2) {
-            searchProducts(query, page = appConfig.defaultPage)
-        }
-    }
-    
-    fun searchProducts(query: String, page: Int? = null) {
+        if (query.length < MIN_QUERY_LENGTH) return
+
+        _resetScroll.value = true
+
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                error = null
-            )
-            
-            val currentPage = page ?: appConfig.defaultPage
-            searchProductsUseCase(query, page = currentPage)
-                .onSuccess { products ->
-                    _uiState.value = _uiState.value.copy(
-                        products = if (currentPage == appConfig.defaultPage) products else _uiState.value.products + products,
-                        isLoading = false,
-                        currentPage = currentPage,
-                        hasMore = products.isNotEmpty() && products.size >= appConfig.defaultPageSize
-                    )
-                }
-                .onFailure { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = exception.message
-                    )
-                }
+            _uiState.update { it.copy(lastSearchedQuery = query) }
+            _searchRequests.emit(query)
         }
     }
-    
-    fun loadMore() {
-        val currentState = _uiState.value
-        if (!currentState.isLoading && currentState.hasMore) {
-            searchProducts(currentState.query, currentState.currentPage + 1)
-        }
+
+    fun onScrollResetHandled() {
+        _resetScroll.value = false
     }
-    
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
-    }
-    
+
     fun onProductClicked(productId: String) {
         // Navigation will be handled by the UI
+    }
+
+    companion object {
+        private const val MIN_QUERY_LENGTH = 2
     }
 }
 
