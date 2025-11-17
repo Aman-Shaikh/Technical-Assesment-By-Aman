@@ -4,6 +4,6 @@ import com.company.productsearch.feature.productdetail.ui.ProductDetailViewModel
 import org.koin.dsl.module
 
 val productDetailModule = module {
-    single { ProductDetailViewModel(get()) }
+    single { ProductDetailViewModel(get(), get()) }
 }
 

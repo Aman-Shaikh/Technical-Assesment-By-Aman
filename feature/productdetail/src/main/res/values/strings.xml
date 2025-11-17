@@ -1,0 +1,23 @@
+<resources>
+    <!-- Product Detail Screen -->
+    <string name="product_details">Product Details</string>
+    <string name="back_button_content_description">Back</string>
+    <string name="product_not_found">Product not found</string>
+    <string name="brand_label">Brand: %1$s</string>
+    <string name="category_label">Category: %1$s</string>
+    <string name="availability">Availability</string>
+    <string name="available_online">Available Online</string>
+    <string name="in_stock">%1$d in stock</string>
+    <string name="not_available_online">Not Available Online</string>
+    <string name="in_store">In Store: %1$s</string>
+    <string name="description">Description</string>
+    <string name="specifications">Specifications</string>
+    <string name="whats_in_the_box">What\'s in the Box</string>
+    <string name="model_label">Model: %1$s</string>
+    <string name="manufacturer_label">Manufacturer: %1$s</string>
+    <string name="upc_label">UPC: %1$s</string>
+    
+    <!-- Error Messages -->
+    <string name="error_occurred">An error occurred</string>
+</resources>
+

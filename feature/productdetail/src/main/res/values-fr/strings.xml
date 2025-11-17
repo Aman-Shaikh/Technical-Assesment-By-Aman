@@ -1,0 +1,23 @@
+<resources>
+    <!-- Product Detail Screen -->
+    <string name="product_details">Détails du produit</string>
+    <string name="back_button_content_description">Retour</string>
+    <string name="product_not_found">Produit introuvable</string>
+    <string name="brand_label">Marque : %1$s</string>
+    <string name="category_label">Catégorie : %1$s</string>
+    <string name="availability">Disponibilité</string>
+    <string name="available_online">Disponible en ligne</string>
+    <string name="in_stock">%1$d en stock</string>
+    <string name="not_available_online">Non disponible en ligne</string>
+    <string name="in_store">En magasin : %1$s</string>
+    <string name="description">Description</string>
+    <string name="specifications">Spécifications</string>
+    <string name="whats_in_the_box">Contenu de la boîte</string>
+    <string name="model_label">Modèle : %1$s</string>
+    <string name="manufacturer_label">Fabricant : %1$s</string>
+    <string name="upc_label">UPC : %1$s</string>
+    
+    <!-- Error Messages -->
+    <string name="error_occurred">Une erreur s\'est produite</string>
+</resources>
+
