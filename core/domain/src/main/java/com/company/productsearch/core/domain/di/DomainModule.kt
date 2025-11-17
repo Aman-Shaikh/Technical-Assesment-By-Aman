@@ -5,6 +5,6 @@ import com.company.productsearch.core.domain.usecase.SearchProductsUseCase
 import org.koin.dsl.module
 
 val domainModule = module {
-    factory { SearchProductsUseCase(get()) }
-    factory { GetProductDetailsUseCase(get()) }
+    factory { SearchProductsUseCase(get(), get()) }
+    factory { GetProductDetailsUseCase(get(), get()) }
 }

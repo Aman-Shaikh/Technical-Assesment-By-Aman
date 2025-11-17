@@ -7,6 +7,6 @@ import com.company.productsearch.core.domain.repository.ProductRepository
 import org.koin.dsl.module
 
 val dataModule = module {
-    single<ProductApi> { ProductApiImpl(get()) }
-    single<ProductRepository> { ProductRepositoryImpl(get()) }
+    single<ProductApi> { ProductApiImpl(get(), get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get(), get()) }
 }

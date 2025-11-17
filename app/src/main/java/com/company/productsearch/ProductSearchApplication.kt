@@ -2,6 +2,7 @@ package com.company.productsearch
 
 import android.app.Application
 import com.company.productsearch.di.appModule
+import com.company.productsearch.core.common.di.configModule
 import com.company.productsearch.core.common.di.networkModule
 import com.company.productsearch.core.data.di.dataModule
 import com.company.productsearch.core.domain.di.domainModule
@@ -17,6 +18,7 @@ class ProductSearchApplication : Application() {
             androidContext(this@ProductSearchApplication)
             modules(
                 appModule,
+                configModule,
                 networkModule,
                 dataModule,
                 domainModule,

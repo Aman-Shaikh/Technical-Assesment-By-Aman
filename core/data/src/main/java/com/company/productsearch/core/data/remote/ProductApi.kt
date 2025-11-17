@@ -1,5 +1,6 @@
 package com.company.productsearch.core.data.remote
 
+import com.company.productsearch.core.common.config.AppConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -8,20 +9,20 @@ import io.ktor.client.request.parameter
 interface ProductApi {
     suspend fun searchProducts(
         query: String,
-        lang: String = "en",
-        page: Int = 1,
-        pageSize: Int = 8
+        lang: String,
+        page: Int,
+        pageSize: Int
     ): SearchResponseDto
     
     suspend fun getProductDetails(
         productId: String,
-        lang: String = "en"
+        lang: String
     ): ProductDetailsDto
 }
 
 class ProductApiImpl(
     private val httpClient: HttpClient,
-    private val baseUrl: String = "http://www.bestbuy.ca/api/v2/json"
+    private val appConfig: AppConfig
 ) : ProductApi {
     
     override suspend fun searchProducts(
@@ -30,7 +31,7 @@ class ProductApiImpl(
         page: Int,
         pageSize: Int
     ): SearchResponseDto {
-        return httpClient.get("$baseUrl/search") {
+        return httpClient.get("${appConfig.baseUrl}/search") {
             parameter("lang", lang)
             parameter("query", query)
             parameter("page", page)
@@ -42,7 +43,7 @@ class ProductApiImpl(
         productId: String,
         lang: String
     ): ProductDetailsDto {
-        return httpClient.get("$baseUrl/product/$productId") {
+        return httpClient.get("${appConfig.baseUrl}/product/$productId") {
             parameter("lang", lang)
         }.body()
     }

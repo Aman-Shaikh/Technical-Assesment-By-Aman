@@ -2,6 +2,7 @@ package com.company.productsearch.feature.search.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.company.productsearch.core.common.config.AppConfig
 import com.company.productsearch.core.domain.model.Product
 import com.company.productsearch.core.domain.usecase.SearchProductsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ data class SearchUiState(
 )
 
 class SearchViewModel(
-    private val searchProductsUseCase: SearchProductsUseCase
+    private val searchProductsUseCase: SearchProductsUseCase,
+    private val appConfig: AppConfig
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -33,24 +35,25 @@ class SearchViewModel(
     fun performSearch() {
         val query = _uiState.value.query.trim()
         if (query.length >= 2) {
-            searchProducts(query, page = 1)
+            searchProducts(query, page = appConfig.defaultPage)
         }
     }
     
-    fun searchProducts(query: String, page: Int = 1) {
+    fun searchProducts(query: String, page: Int? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 error = null
             )
             
-            searchProductsUseCase(query, "en", page, 24)
+            val currentPage = page ?: appConfig.defaultPage
+            searchProductsUseCase(query, page = currentPage)
                 .onSuccess { products ->
                     _uiState.value = _uiState.value.copy(
-                        products = if (page == 1) products else _uiState.value.products + products,
+                        products = if (currentPage == appConfig.defaultPage) products else _uiState.value.products + products,
                         isLoading = false,
-                        currentPage = page,
-                        hasMore = products.isNotEmpty() && products.size >= 24
+                        currentPage = currentPage,
+                        hasMore = products.isNotEmpty() && products.size >= appConfig.defaultPageSize
                     )
                 }
                 .onFailure { exception ->

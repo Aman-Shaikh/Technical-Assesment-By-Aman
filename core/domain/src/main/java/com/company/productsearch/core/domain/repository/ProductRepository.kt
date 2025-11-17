@@ -6,16 +6,16 @@ import com.company.productsearch.core.domain.model.ProductDetails
 interface ProductRepository {
     suspend fun searchProducts(
         query: String,
-        lang: String = "en",
-        page: Int = 1,
-        pageSize: Int = 8
+        lang: String,
+        page: Int,
+        pageSize: Int
     ): Result<List<Product>>
     
     suspend fun getProductById(id: String): Result<Product>
     
     suspend fun getProductDetails(
         productId: String,
-        lang: String = "en"
+        lang: String
     ): Result<ProductDetails>
 }
 
