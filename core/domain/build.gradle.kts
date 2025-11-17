@@ -42,4 +42,10 @@ dependencies {
 
     // Koin
     api(libs.koin.android)
+    
+    // Coroutines
+    testImplementation(libs.kotlinx.coroutines.test)
+    
+    // Mockk
+    testImplementation(libs.mockk)
 }
