@@ -3,7 +3,7 @@ package com.company.productsearch.core.common.di
 import com.company.productsearch.core.common.config.AppConfig
 import com.company.productsearch.core.common.config.AppConfigImpl
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.DEFAULT
 import io.ktor.client.plugins.logging.LogLevel
@@ -21,7 +21,7 @@ val configModule = module {
 // Network module - Ktor HttpClient configuration
 val networkModule = module {
     single {
-        HttpClient(CIO) {
+        HttpClient(OkHttp) {
             // JSON Content Negotiation
             install(ContentNegotiation) {
                 json(
@@ -43,7 +43,10 @@ val networkModule = module {
 
             // Engine configuration
             engine {
-                requestTimeout = 30000 // 30 seconds
+                config {
+                    followRedirects(true)
+                    // TODO Add SSL Pinning
+                }
             }
         }
     }
