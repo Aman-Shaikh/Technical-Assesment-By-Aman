@@ -41,5 +41,14 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+
+    // Arch Core Testing
+    testImplementation(libs.androidx.arch.core.testing)
+
+    // Coroutines
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // Mockk
+    testImplementation(libs.mockk)
 }
 
