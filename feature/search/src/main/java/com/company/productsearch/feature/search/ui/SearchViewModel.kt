@@ -102,10 +102,6 @@ class SearchViewModel(
         _resetScroll.value = false
     }
 
-    fun onProductClicked(productId: String) {
-        // Navigation will be handled by the UI
-    }
-
     companion object {
         private const val MIN_QUERY_LENGTH = 2
     }
